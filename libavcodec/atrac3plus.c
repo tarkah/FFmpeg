@@ -222,6 +222,9 @@ static int num_coded_units(GetBitContext *gb, Atrac3pChanParams *chan,
                            Atrac3pChanUnitCtx *ctx, AVCodecContext *avctx)
 {
     chan->fill_mode = get_bits(gb, 2);
+
+    printf("chan->fill_mode: %d", chan->fill_mode);
+
     if (!chan->fill_mode) {
         chan->num_coded_vals = ctx->num_quant_units;
     } else {
@@ -336,14 +339,17 @@ static int decode_channel_wordlen(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
                                   int ch_num, AVCodecContext *avctx)
 {
     int i, weight_idx = 0, delta, diff, pos, delta_bits, min_val, flag,
-        ret, start_val;
+        ret, start_val, code_mode;
     VLC *vlc_tab;
     Atrac3pChanParams *chan     = &ctx->channels[ch_num];
     Atrac3pChanParams *ref_chan = &ctx->channels[0];
 
     chan->fill_mode = 0;
 
-    switch (get_bits(gb, 2)) { /* switch according to coding mode */
+    code_mode = get_bits(gb, 2);
+    av_log(avctx, AV_LOG_ERROR, "code_mode: %d\n", code_mode);
+
+    switch (code_mode) { /* switch according to coding mode */
     case 0: /* coded using constant number of bits */
         for (i = 0; i < ctx->num_quant_units; i++)
             chan->qu_wordlen[i] = get_bits(gb, 3);
@@ -354,20 +360,31 @@ static int decode_channel_wordlen(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
                 return ret;
 
             if (chan->num_coded_vals) {
-                vlc_tab = &wl_vlc_tabs[get_bits(gb, 2)];
+                int vlc_sel;
+                vlc_sel = get_bits(gb, 2);
+                printf("vlc_sel: %d\n", vlc_sel);
+                vlc_tab = &wl_vlc_tabs[vlc_sel];
 
                 for (i = 0; i < chan->num_coded_vals; i++) {
                     delta = get_vlc2(gb, vlc_tab->table, vlc_tab->bits, 1);
+                    printf("delta: %d\n", delta);
                     chan->qu_wordlen[i] = (ref_chan->qu_wordlen[i] + delta) & 7;
+                    printf("chan->qu_wordlen[i]: %d\n", chan->qu_wordlen[i]);
                 }
             }
         } else {
             weight_idx = get_bits(gb, 2);
+            av_log(avctx, AV_LOG_ERROR, "weight_idx: %d\n", weight_idx);
+
             if ((ret = num_coded_units(gb, chan, ctx, avctx)) < 0)
                 return ret;
 
             if (chan->num_coded_vals) {
                 pos = get_bits(gb, 5);
+
+		        av_log(avctx, AV_LOG_ERROR, "POS: %d\n", pos);
+		
+
                 if (pos > chan->num_coded_vals) {
                     av_log(avctx, AV_LOG_ERROR,
                            "WL mode 1: invalid position!\n");
@@ -433,6 +450,9 @@ static int decode_channel_wordlen(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
         break;
     case 3:
         weight_idx = get_bits(gb, 2);
+
+        printf("weight_idx: %d", weight_idx);
+
         if ((ret = num_coded_units(gb, chan, ctx, avctx)) < 0)
             return ret;
 
@@ -488,7 +508,10 @@ static int decode_channel_sf_idx(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
     Atrac3pChanParams *chan     = &ctx->channels[ch_num];
     Atrac3pChanParams *ref_chan = &ctx->channels[0];
 
-    switch (get_bits(gb, 2)) { /* switch according to coding mode */
+    int coding_mode;
+    coding_mode = get_bits(gb, 2);
+    printf("sf idx coding_mode: %d\n", coding_mode);
+    switch (coding_mode) { /* switch according to coding mode */
     case 0: /* coded using constant number of bits */
         for (i = 0; i < ctx->used_quant_units; i++)
             chan->qu_sf_idx[i] = get_bits(gb, 6);
@@ -573,26 +596,37 @@ static int decode_channel_sf_idx(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
             vlc_sel    = get_bits(gb, 2);
             vlc_tab    = &sf_vlc_tabs[vlc_sel];
 
+            printf("weight_idx: %d\n", weight_idx);
+            printf("vlc_sel: %d\n", vlc_sel);
+
             if (weight_idx == 3) {
                 vlc_tab = &sf_vlc_tabs[vlc_sel + 4];
 
                 UNPACK_SF_VQ_SHAPE(gb, chan->qu_sf_idx, ctx->used_quant_units);
 
                 diff               = (get_bits(gb, 4)    + 56)   & 0x3F;
+                printf("diff: %d\n", diff);
                 chan->qu_sf_idx[0] = (chan->qu_sf_idx[0] + diff) & 0x3F;
+                printf("chan->qu_sf_idx[0]: %d\n", chan->qu_sf_idx[0]);
 
                 for (i = 1; i < ctx->used_quant_units; i++) {
                     delta = get_vlc2(gb, vlc_tab->table, vlc_tab->bits, 1);
+                    printf("delta: %d\n", delta);
                     diff               = (diff + sign_extend(delta, 4)) & 0x3F;
+                    printf("diff: %d\n", diff);
                     chan->qu_sf_idx[i] = (diff + chan->qu_sf_idx[i])    & 0x3F;
+                    printf("chan->qu_sf_idx[i]: %d\n", chan->qu_sf_idx[i]);
                 }
             } else {
                 /* 1st coefficient is coded directly */
                 chan->qu_sf_idx[0] = get_bits(gb, 6);
+                printf("chan->qu_sf_idx[0]: %d\n", chan->qu_sf_idx[0]);
 
                 for (i = 1; i < ctx->used_quant_units; i++) {
                     delta = get_vlc2(gb, vlc_tab->table, vlc_tab->bits, 1);
+                    printf("delta: %d\n", delta);
                     chan->qu_sf_idx[i] = (chan->qu_sf_idx[i - 1] + delta) & 0x3F;
+                    printf("chan->qu_sf_idx[i]: %d\n", chan->qu_sf_idx[i]);
                 }
             }
         }
@@ -693,6 +727,7 @@ static int get_num_ct_values(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
 
 #define DEC_CT_IDX_COMMON(OP)                                           \
     num_vals = get_num_ct_values(gb, ctx, avctx);                       \
+    printf("num_vals: %d", num_vals);                                   \
     if (num_vals < 0)                                                   \
         return num_vals;                                                \
                                                                         \
@@ -712,7 +747,8 @@ static int get_num_ct_values(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
     (!i) ? CODING_VLC                                                   \
          : (pred + get_vlc2(gb, delta_vlc->table,                       \
                             delta_vlc->bits, 1)) & mask;                \
-    pred = chan->qu_tab_idx[i]
+    pred = chan->qu_tab_idx[i];                                         \
+    printf("pred: %d", pred)
 
 #define CODING_VLC_DIFF                                                 \
     (ref_chan->qu_tab_idx[i] +                                          \
@@ -738,7 +774,10 @@ static int decode_channel_code_tab(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
 
     chan->table_type = get_bits1(gb);
 
-    switch (get_bits(gb, 2)) { /* switch according to coding mode */
+    int coding_mode;
+    coding_mode = get_bits(gb, 2);
+    printf("code_tab coding_mode: %d\n", coding_mode);
+    switch (coding_mode) { /* switch according to coding mode */
     case 0: /* directly coded */
         num_bits = ctx->use_full_table + 2;
         DEC_CT_IDX_COMMON(CODING_DIRECT);
@@ -1765,6 +1804,7 @@ int ff_atrac3p_decode_channel_unit(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
 
     /* parse sound header */
     ctx->num_quant_units = get_bits(gb, 5) + 1;
+
     if (ctx->num_quant_units > 28 && ctx->num_quant_units < 32) {
         av_log(avctx, AV_LOG_ERROR,
                "Invalid number of quantization units: %d!\n",
@@ -1810,6 +1850,106 @@ int ff_atrac3p_decode_channel_unit(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
         ctx->noise_level_index = get_bits(gb, 4);
         ctx->noise_table_index = get_bits(gb, 4);
     }
+
+    printf("--- Channel Block ---\n\
+Quant Units:      %d\n\
+Used Quant Units: %d\n\
+Mute Flag:        %d\n\
+# Subbands:       %d\n\
+# Coded Subbands: %d\n\
+Use Full Table:   %d",
+ctx->num_quant_units,
+ctx->used_quant_units,
+ctx->mute_flag,
+ctx->num_subbands,
+ctx->num_coded_subbands,
+ctx->use_full_table);
+
+    int loop, inner;
+
+    printf("\nSwap Channels:    ");
+    for (loop = 0; loop < 16; loop++)
+        printf("%d ", ctx->swap_channels[loop]);
+
+    printf("\nNegate Coeffs:    ");
+    for (loop = 0; loop < 16; loop++)
+        printf("%d ", ctx->negate_coeffs[loop]);
+
+    printf("\n\n------- Chn 0 -------\n\
+Coded Vals:       %d\n\
+Fill Mode:        %d\n\
+Split Point:      %d\n\
+Table Type:       %d",
+ctx->channels[0].num_coded_vals,
+ctx->channels[0].fill_mode,
+ctx->channels[0].split_point,
+ctx->channels[0].table_type
+);
+
+    printf("\nQU Wordlen:       ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[0].qu_wordlen[loop]);
+    printf("\nQU SF Idx:        ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[0].qu_sf_idx[loop]);
+    printf("\nQU Tab Idx:       ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[0].qu_tab_idx[loop]);
+    printf("\nPower Levels:     ");
+    for (loop = 0; loop < 5; loop++)
+        printf("%d ", ctx->channels[0].power_levs[loop]);
+    printf("\nWindow Shape:     ");
+    for (loop = 0; loop < 16; loop++)
+        printf("%d ", ctx->channels[0].wnd_shape[loop]);
+    printf("\nGain Data:        ");
+    for (loop = 0; loop < 16; loop++)
+        printf("(%d,", ctx->channels[0].gain_data[loop].num_points);
+        for (inner = 0; inner < 7; inner++)
+            printf(" %d", ctx->channels[0].gain_data[loop].lev_code[inner]);
+        printf(",");
+        for (inner = 0; inner < 7; inner++)
+            printf(" %d", ctx->channels[0].gain_data[loop].loc_code[inner]);
+        printf("), ");
+    printf("\n# Gain Subbands:   %d", ctx->channels[0].num_gain_subbands);
+
+    printf("\n\n------- Chn 1 -------\n\
+Coded Vals:       %d\n\
+Fill Mode:        %d\n\
+Split Point:      %d\n\
+Table Type:       %d",
+ctx->channels[1].num_coded_vals,
+ctx->channels[1].fill_mode,
+ctx->channels[1].split_point,
+ctx->channels[1].table_type
+);
+
+    printf("\nQU Wordlen:       ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[1].qu_wordlen[loop]);
+    printf("\nQU SF Idx:        ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[1].qu_sf_idx[loop]);
+    printf("\nQU Tab Idx:       ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[1].qu_tab_idx[loop]);
+    printf("\nPower Levels:     ");
+    for (loop = 0; loop < 5; loop++)
+        printf("%d ", ctx->channels[1].power_levs[loop]);
+    printf("\nWindow Shape:     ");
+    for (loop = 0; loop < 16; loop++)
+        printf("%d ", ctx->channels[1].wnd_shape[loop]);
+    printf("\nGain Data:        ");
+    for (loop = 0; loop < 16; loop++)
+        printf("(%d,", ctx->channels[1].gain_data[loop].num_points);
+        for (inner = 0; inner < 7; inner++)
+            printf(" %d", ctx->channels[1].gain_data[loop].lev_code[inner]);
+        printf(",");
+        for (inner = 0; inner < 7; inner++)
+            printf(" %d", ctx->channels[1].gain_data[loop].loc_code[inner]);
+        printf("), ");
+    printf("\n# Gain Subbands:   %d", ctx->channels[1].num_gain_subbands);
+
+    printf("\n");
 
     return 0;
 }
