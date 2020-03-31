@@ -353,6 +353,9 @@ static int atrac3p_decode_frame(AVCodecContext *avctx, void *data,
             avpriv_report_missing_feature(avctx, "Channel unit extension");
             return AVERROR_PATCHWELCOME;
         }
+
+        printf("ch_unit_id: %d\n", ch_unit_id);
+
         if (ch_block >= ctx->num_channel_blocks ||
             ctx->channel_blocks[ch_block] != ch_unit_id) {
             av_log(avctx, AV_LOG_ERROR,
@@ -368,6 +371,8 @@ static int atrac3p_decode_frame(AVCodecContext *avctx, void *data,
                                                   channels_to_process,
                                                   avctx)) < 0)
             return ret;
+
+        abort();
 
         decode_residual_spectrum(ctx, &ctx->ch_units[ch_block], ctx->samples,
                                  channels_to_process, avctx);
