@@ -91,6 +91,9 @@ void ff_atrac_gain_compensation(AtracGCContext *gctx, float *in, float *prev,
     gc_scale = gc_next->num_points ? gctx->gain_tab1[gc_next->lev_code[0]]
                                    : 1.0f;
 
+    printf("gc_scale: %.6f\n", gc_scale);
+    printf("gc_now.num_points: %d\n", gc_now->num_points);
+
     if (!gc_now->num_points) {
         for (pos = 0; pos < num_samples; pos++)
             out[pos] = in[pos] * gc_scale + prev[pos];
@@ -98,9 +101,20 @@ void ff_atrac_gain_compensation(AtracGCContext *gctx, float *in, float *prev,
         pos = 0;
 
         for (i = 0; i < gc_now->num_points; i++) {
+            printf("i: %d\n", i);
+            printf("gctx->loc_scale: %d\n", gctx->loc_scale);
+            printf("gc_now->loc_code[i]: %d\n", gc_now->loc_code[i]);
+            printf("gc_now->lev_code[i]: %d\n", gc_now->lev_code[i]);
+            printf("gc_now->lev_code[i + 1]: %d\n", gc_now->lev_code[i + 1]);
+            printf("gctx->id2exp_offset: %d\n", gctx->id2exp_offset);
+
             lastpos = gc_now->loc_code[i] << gctx->loc_scale;
 
+            printf("lastpos: %d\n", lastpos);
+
             lev = gctx->gain_tab1[gc_now->lev_code[i]];
+            printf("lev: %.6f\n", lev);
+
             gain_inc = gctx->gain_tab2[(i + 1 < gc_now->num_points ? gc_now->lev_code[i + 1]
                                                                    : gctx->id2exp_offset) -
                                        gc_now->lev_code[i] + 15];
