@@ -472,6 +472,16 @@ void ff_atrac3p_imdct(AVFloatDSPContext *fdsp, FFTContext *mdct_ctx, float *pIn,
 
     mdct_ctx->imdct_calc(mdct_ctx, pOut, pIn);
 
+    int loop;
+    printf("IMDCT pre window\n");
+    for (loop=0; loop < ATRAC3P_SUBBAND_SAMPLES; loop++)
+        printf(",%.6f", pOut[loop]);
+
+    printf("\n");
+
+    abort();
+
+
     /* Perform windowing on the output.
      * ATRAC3+ uses two different MDCT windows:
      * - The first one is just the plain sine window of size 256
