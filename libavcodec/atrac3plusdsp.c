@@ -472,6 +472,13 @@ void ff_atrac3p_imdct(AVFloatDSPContext *fdsp, FFTContext *mdct_ctx, float *pIn,
 
     mdct_ctx->imdct_calc(mdct_ctx, pOut, pIn);
 
+    int loop;
+    printf("IMDCT pre window\n");
+    for (loop=0; loop < ATRAC3P_SUBBAND_SAMPLES; loop++)
+        printf(",%.6f", pOut[loop]);
+
+    printf("\n");
+
     /* Perform windowing on the output.
      * ATRAC3+ uses two different MDCT windows:
      * - The first one is just the plain sine window of size 256
@@ -490,6 +497,16 @@ void ff_atrac3p_imdct(AVFloatDSPContext *fdsp, FFTContext *mdct_ctx, float *pIn,
     } else /* 2nd half: simple sine window */
         fdsp->vector_fmul_reverse(&pOut[128], &pOut[128], ff_sine_128,
                                   ATRAC3P_MDCT_SIZE / 2);
+
+
+    int loop;
+    printf("IMDCT post window\n");
+    for (loop=0; loop < ATRAC3P_SUBBAND_SAMPLES; loop++)
+        printf(",%.6f", pOut[loop]);
+
+    printf("\n");
+
+    abort();
 }
 
 /* lookup table for fast modulo 23 op required for cyclic buffers of the IPQF */
