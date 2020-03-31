@@ -222,6 +222,8 @@ static void decode_residual_spectrum(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch
     for (sb = 0; sb < ch_unit->num_coded_subbands; sb++, RNG_index += 128)
         sb_RNG_index[sb] = RNG_index & 0x3FC;
 
+    printf("rng_index: %d", RNG_index);
+
     /* inverse quant and power compensation */
     for (ch = 0; ch < num_channels; ch++) {
         /* clear channel's residual spectrum */
@@ -233,10 +235,17 @@ static void decode_residual_spectrum(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch
             nspeclines = ff_atrac3p_qu_to_spec_pos[qu + 1] -
                          ff_atrac3p_qu_to_spec_pos[qu];
 
+            printf("nspeclines: %d", nspeclines);
+
             if (ch_unit->channels[ch].qu_wordlen[qu] > 0) {
                 q = ff_atrac3p_sf_tab[ch_unit->channels[ch].qu_sf_idx[qu]] *
                     ff_atrac3p_mant_tab[ch_unit->channels[ch].qu_wordlen[qu]];
+
+                printf("q: %.6f", q);
+
                 for (i = 0; i < nspeclines; i++)
+                    printf("src[i]: %d", src[i]);
+
                     dst[i] = src[i] * q;
             }
         }
@@ -353,6 +362,9 @@ static int atrac3p_decode_frame(AVCodecContext *avctx, void *data,
             avpriv_report_missing_feature(avctx, "Channel unit extension");
             return AVERROR_PATCHWELCOME;
         }
+
+        printf("ch_unit_id: %d\n", ch_unit_id);
+
         if (ch_block >= ctx->num_channel_blocks ||
             ctx->channel_blocks[ch_block] != ch_unit_id) {
             av_log(avctx, AV_LOG_ERROR,
@@ -371,6 +383,20 @@ static int atrac3p_decode_frame(AVCodecContext *avctx, void *data,
 
         decode_residual_spectrum(ctx, &ctx->ch_units[ch_block], ctx->samples,
                                  channels_to_process, avctx);
+
+        int loop;
+        printf("\n\nCh: 0\n");
+        for (loop = 0; loop < ATRAC3P_FRAME_SAMPLES; loop++)
+            printf(",%.6f", ctx->samples[0][loop]);
+
+        printf("\n\nCh: 1\n");
+        for (loop = 0; loop < ATRAC3P_FRAME_SAMPLES; loop++)
+            printf(",%.6f", ctx->samples[1][loop]);
+
+        printf("\n\n");
+
+        abort();
+
         reconstruct_frame(ctx, &ctx->ch_units[ch_block],
                           channels_to_process, avctx);
 
