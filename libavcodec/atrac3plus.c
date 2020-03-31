@@ -336,14 +336,17 @@ static int decode_channel_wordlen(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
                                   int ch_num, AVCodecContext *avctx)
 {
     int i, weight_idx = 0, delta, diff, pos, delta_bits, min_val, flag,
-        ret, start_val;
+        ret, start_val, code_mode;
     VLC *vlc_tab;
     Atrac3pChanParams *chan     = &ctx->channels[ch_num];
     Atrac3pChanParams *ref_chan = &ctx->channels[0];
 
     chan->fill_mode = 0;
 
-    switch (get_bits(gb, 2)) { /* switch according to coding mode */
+    code_mode = get_bits(gb, 2);
+    av_log(avctx, AV_LOG_ERROR, "code_mode: %d\n", code_mode);
+
+    switch (code_mode) { /* switch according to coding mode */
     case 0: /* coded using constant number of bits */
         for (i = 0; i < ctx->num_quant_units; i++)
             chan->qu_wordlen[i] = get_bits(gb, 3);
@@ -363,11 +366,17 @@ static int decode_channel_wordlen(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
             }
         } else {
             weight_idx = get_bits(gb, 2);
+            av_log(avctx, AV_LOG_ERROR, "weight_idx: %d\n", weight_idx);
+
             if ((ret = num_coded_units(gb, chan, ctx, avctx)) < 0)
                 return ret;
 
             if (chan->num_coded_vals) {
                 pos = get_bits(gb, 5);
+
+		        av_log(avctx, AV_LOG_ERROR, "POS: %d\n", pos);
+		
+
                 if (pos > chan->num_coded_vals) {
                     av_log(avctx, AV_LOG_ERROR,
                            "WL mode 1: invalid position!\n");
@@ -1765,6 +1774,7 @@ int ff_atrac3p_decode_channel_unit(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
 
     /* parse sound header */
     ctx->num_quant_units = get_bits(gb, 5) + 1;
+
     if (ctx->num_quant_units > 28 && ctx->num_quant_units < 32) {
         av_log(avctx, AV_LOG_ERROR,
                "Invalid number of quantization units: %d!\n",
@@ -1810,6 +1820,82 @@ int ff_atrac3p_decode_channel_unit(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
         ctx->noise_level_index = get_bits(gb, 4);
         ctx->noise_table_index = get_bits(gb, 4);
     }
+
+    printf("--- Channel Block ---\n\
+Quant Units:      %d\n\
+Mute Flag:        %d\n\
+# Subbands:       %d\n\
+# Coded Subbands: %d\n\
+Use Full Table:   %d",
+ctx->num_quant_units,
+ctx->mute_flag,
+ctx->num_subbands,
+ctx->num_coded_subbands,
+ctx->use_full_table);
+
+    int loop;
+
+    printf("\nSwap Channels:    ");
+    for (loop = 0; loop < 16; loop++)
+        printf("%d ", ctx->swap_channels[loop]);
+
+    printf("\nNegate Coeffs:    ");
+    for (loop = 0; loop < 16; loop++)
+        printf("%d ", ctx->negate_coeffs[loop]);
+
+    printf("\n\n------- Chn 0 -------\n\
+Coded Vals:       %d\n\
+Fill Mode:        %d\n\
+Split Point:      %d\n\
+Table Type:       %d",
+ctx->channels[0].num_coded_vals,
+ctx->channels[0].fill_mode,
+ctx->channels[0].split_point,
+ctx->channels[0].table_type
+);
+
+    printf("\nQU Wordlen:       ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[0].qu_wordlen[loop]);
+    printf("\nQU SF Idx:        ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[0].qu_sf_idx[loop]);
+    printf("\nQU Tab Idx:       ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[0].qu_tab_idx[loop]);
+    printf("\nPower Levels:     ");
+    for (loop = 0; loop < 5; loop++)
+        printf("%d ", ctx->channels[0].power_levs[loop]);
+    printf("\nWindow Shape:     ");
+    for (loop = 0; loop < 16; loop++)
+        printf("%d ", ctx->channels[0].wnd_shape[loop]);
+
+    printf("\n\n------- Chn 0 -------\n\
+Coded Vals:       %d\n\
+Fill Mode:        %d\n\
+Split Point:      %d\n\
+Table Type:       %d",
+ctx->channels[1].num_coded_vals,
+ctx->channels[1].fill_mode,
+ctx->channels[1].split_point,
+ctx->channels[1].table_type
+);
+
+    printf("\nQU Wordlen:       ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[1].qu_wordlen[loop]);
+    printf("\nQU SF Idx:        ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[1].qu_sf_idx[loop]);
+    printf("\nQU Tab Idx:       ");
+    for (loop = 0; loop < 32; loop++)
+        printf("%d ", ctx->channels[1].qu_tab_idx[loop]);
+    printf("\nPower Levels:     ");
+    for (loop = 0; loop < 5; loop++)
+        printf("%d ", ctx->channels[1].power_levs[loop]);
+    printf("\nWindow Shape:     ");
+    for (loop = 0; loop < 16; loop++)
+        printf("%d ", ctx->channels[1].wnd_shape[loop]);
 
     return 0;
 }
