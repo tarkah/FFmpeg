@@ -472,6 +472,13 @@ void ff_atrac3p_imdct(AVFloatDSPContext *fdsp, FFTContext *mdct_ctx, float *pIn,
 
     mdct_ctx->imdct_calc(mdct_ctx, pOut, pIn);
 
+    // int loop;
+    // printf("IMDCT pre window\n");
+    // for (loop=0; loop < ATRAC3P_MDCT_SIZE; loop++)
+    //     printf(",%.6f", pOut[loop]);
+
+    // printf("\n");
+
     /* Perform windowing on the output.
      * ATRAC3+ uses two different MDCT windows:
      * - The first one is just the plain sine window of size 256
@@ -490,6 +497,14 @@ void ff_atrac3p_imdct(AVFloatDSPContext *fdsp, FFTContext *mdct_ctx, float *pIn,
     } else /* 2nd half: simple sine window */
         fdsp->vector_fmul_reverse(&pOut[128], &pOut[128], ff_sine_128,
                                   ATRAC3P_MDCT_SIZE / 2);
+
+
+    
+    // printf("IMDCT post window\n");
+    // for (loop=0; loop < ATRAC3P_MDCT_SIZE; loop++)
+    //     printf(",%.6f", pOut[loop]);
+
+    // printf("\n");
 }
 
 /* lookup table for fast modulo 23 op required for cyclic buffers of the IPQF */
@@ -616,8 +631,17 @@ void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
         for (sb = 0; sb < ATRAC3P_SUBBANDS; sb++)
             idct_in[sb] = in[sb * ATRAC3P_SUBBAND_SAMPLES + s];
 
+        int loop;
+        printf("\npre idmct_half input\n");
+        for (loop = 0; loop < ATRAC3P_SUBBANDS; loop++)
+            printf("%.6f,", idct_in[loop]);
+
         /* Calculate the sine and cosine part of the PQF using IDCT-IV */
         dct_ctx->imdct_half(dct_ctx, idct_out, idct_in);
+
+        printf("\npre idmct_half output\n");
+        for (loop = 0; loop < ATRAC3P_SUBBANDS; loop++)
+            printf("%.6f,", idct_out[loop]);
 
         /* append the result to the history */
         for (i = 0; i < 8; i++) {
